@@ -1,0 +1,101 @@
+name: Deploy HTML Website
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  deploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # 1. Download repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Configure SSH
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+
+        run: |
+          mkdir -p ~/.ssh
+
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+
+      # 3. Test SSH connection
+      - name: Test SSH connection
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+
+        run: |
+          ssh \
+            -i ~/.ssh/deploy_key \
+            "$SERVER_USER@$SERVER_HOST" \
+            "echo SSH connection successful"
+
+      # 4. Create deployment directory
+      - name: Prepare server
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+
+        run: |
+          ssh \
+            -i ~/.ssh/deploy_key \
+            "$SERVER_USER@$SERVER_HOST" \
+            "mkdir -p /var/www/actionapp"
+
+      # 5. Copy website files
+      - name: Deploy website
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+
+        run: |
+          scp \
+            -i ~/.ssh/deploy_key \
+            -r index.html style.css script.js \
+            "$SERVER_USER@$SERVER_HOST:/var/www/actionapp/"
+
+      # 6. Set permissions
+      - name: Set permissions
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+
+        run: |
+          ssh \
+            -i ~/.ssh/deploy_key \
+            "$SERVER_USER@$SERVER_HOST" \
+            "chmod 755 /var/www/actionapp && chmod 644 /var/www/actioapp/*"
+
+      # 7. Verify deployment
+      - name: Verify deployment
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+
+        run: |
+          ssh \
+            -i ~/.ssh/deploy_key \
+            "$SERVER_USER@$SERVER_HOST" \
+            "ls -lah /var/www/actionapp"
+
+      # 8. Deployment completed
+      - name: Deployment status
+        run: |
+          echo "================================="
+          echo "Website deployed successfully!"
+          echo "================================="
