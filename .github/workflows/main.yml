@@ -10,7 +10,8 @@ on:
 jobs:
   deploy:
 
-    runs-on: ubuntu-latest
+    # Run directly on your KVM VM
+    runs-on: self-hosted
 
     steps:
 
@@ -18,82 +19,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Configure SSH
-      - name: Configure SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-
-        run: |
-          mkdir -p ~/.ssh
-
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
-
-          chmod 600 ~/.ssh/deploy_key
-
-          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
-
-      # 3. Test SSH connection
-      - name: Test SSH connection
-        env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-
-        run: |
-          ssh \
-            -i ~/.ssh/deploy_key \
-            "$SERVER_USER@$SERVER_HOST" \
-            "echo SSH connection successful"
-
-      # 4. Create deployment directory
+      # 2. Prepare deployment directory
       - name: Prepare server
-        env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-
         run: |
-          ssh \
-            -i ~/.ssh/deploy_key \
-            "$SERVER_USER@$SERVER_HOST" \
-            "mkdir -p /var/www/actionapp"
+          mkdir -p /var/www/actionapp
 
-      # 5. Copy website files
+      # 3. Deploy website
       - name: Deploy website
-        env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-
         run: |
-          scp \
-            -i ~/.ssh/deploy_key \
-            -r index.html style.css script.js \
-            "$SERVER_USER@$SERVER_HOST:/var/www/actionapp/"
+          rm -rf /var/www/actionapp/*
+          cp index.html /var/www/actionapp/
+          cp style.css /var/www/actionapp/
+          cp script.js /var/www/actionapp/
 
-      # 6. Set permissions
+      # 4. Set permissions
       - name: Set permissions
-        env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-
         run: |
-          ssh \
-            -i ~/.ssh/deploy_key \
-            "$SERVER_USER@$SERVER_HOST" \
-            "chmod 755 /var/www/actionapp && chmod 644 /var/www/actioapp/*"
+          chmod 755 /var/www/actionapp
+          chmod 644 /var/www/actionapp/*
 
-      # 7. Verify deployment
+      # 5. Verify deployment
       - name: Verify deployment
-        env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-
         run: |
-          ssh \
-            -i ~/.ssh/deploy_key \
-            "$SERVER_USER@$SERVER_HOST" \
-            "ls -lah /var/www/actionapp"
+          echo "Files deployed:"
+          ls -lah /var/www/actionapp
 
-      # 8. Deployment completed
+      # 6. Deployment completed
       - name: Deployment status
         run: |
           echo "================================="
